@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Icloud Control</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+
+<!-- ================= LOGIN ================= -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="brand-mark">
+      <div class="brand-ring"></div>
+      <div class="brand-name">Icloud <span>Control</span></div>
+    </div>
+    <h1>Entrar</h1>
+    <p class="sub">Acesse o painel de gerenciamento de contas.</p>
+    <form id="login-form">
+      <div class="field">
+        <label>E-mail</label>
+        <input type="email" id="login-username" autocomplete="username" required>
+      </div>
+      <div class="field">
+        <label>Senha</label>
+        <input type="password" id="login-password" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="btn btn-primary">Entrar</button>
+      <div class="login-error" id="login-error">E-mail ou senha inválidos.</div>
+    </form>
+    <div class="login-hint" id="login-hint">Conectando ao Supabase…</div>
+  </div>
+</div>
+
+<!-- ================= APP ================= -->
+<div id="app-screen">
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="brand-ring" style="width:28px;height:28px;"></div>
+      <div class="brand-name">Icloud <span>Control</span></div>
+    </div>
+    <div class="topbar-right">
+      <span id="save-status">🟢 Conectado ao Supabase</span>
+      <div class="user-chip"><span class="user-dot"></span><span id="current-user-label">—</span></div>
+      <button class="btn btn-ghost btn-sm" id="logout-btn">Sair</button>
+    </div>
+  </header>
+
+  <main>
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="clients">Clientes</button>
+      <button class="tab-btn" data-tab="users">Usuários</button>
+    </nav>
+
+    <!-- ---- CLIENTS PANEL ---- -->
+    <section class="panel active" id="panel-clients">
+      <div class="panel-head">
+        <div>
+          <h2>Clientes</h2>
+          <p>Contas iCloud cadastradas e parcelas em aberto.</p>
+        </div>
+        <button class="btn btn-outline-accent btn-sm" id="toggle-client-form">+ Novo cliente</button>
+      </div>
+
+      <div class="form-card" id="client-form-card">
+        <form id="client-form">
+          <div class="form-grid">
+            <div class="field">
+              <label>Nome do cliente</label>
+              <input type="text" id="c-name" required>
+            </div>
+            <div class="field">
+              <label>Conta iCloud</label>
+              <input type="text" id="c-account" placeholder="email@icloud.com" required>
+            </div>
+            <div class="field">
+              <label>Senha iCloud</label>
+              <input type="text" id="c-password" required>
+            </div>
+            <div class="field">
+              <label>Senha (tempo de uso)</label>
+              <input type="text" id="c-usage-password" required>
+            </div>
+            <div class="field">
+              <label>Telefone</label>
+              <input type="text" id="c-phone" placeholder="(00) 00000-0000" required>
+            </div>
+            <div class="field">
+              <label>Chave de acesso</label>
+              <input type="text" id="c-key" required>
+            </div>
+            <div class="field">
+              <label>Parcelas</label>
+              <input type="number" id="c-installments" min="1" value="12" required>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn btn-ghost btn-sm" id="cancel-client-form">Cancelar</button>
+            <button type="submit" class="btn btn-outline-accent btn-sm">Salvar cliente</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="table-wrap">
+        <table id="clients-table">
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>Conta iCloud</th>
+              <th>Senha iCloud</th>
+              <th>Senha (tempo de uso)</th>
+              <th>Telefone</th>
+              <th>Chave de acesso</th>
+              <th>Parcelas</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="clients-tbody"></tbody>
+        </table>
+        <div class="empty-state" id="clients-empty" style="display:none;">
+          <div class="glyph">＋</div>
+          <h3>Nenhum cliente cadastrado</h3>
+          <p>Clique em "Novo cliente" para começar.</p>
+        </div>
+      </div>
+
+      <div class="due-bar">
+        <div>
+          <div class="label">Valor devido este mês</div>
+          <div class="value" id="due-value">R$ 0,00</div>
+        </div>
+        <div class="meta" id="due-meta">0 clientes ativos × R$ 60,00</div>
+      </div>
+    </section>
+
+    <!-- ---- USERS PANEL ---- -->
+    <section class="panel" id="panel-users">
+      <div class="panel-head">
+        <div>
+          <h2>Usuários do sistema</h2>
+          <p>Pessoas com acesso ao painel (autenticação Supabase).</p>
+        </div>
+        <button class="btn btn-outline-accent btn-sm" id="toggle-user-form">+ Novo usuário</button>
+      </div>
+
+      <div class="form-card" id="user-form-card">
+        <form id="user-form">
+          <div class="form-grid" style="grid-template-columns:1fr 1fr;">
+            <div class="field">
+              <label>E-mail</label>
+              <input type="email" id="u-username" required>
+            </div>
+            <div class="field">
+              <label>Senha (mín. 6 caracteres)</label>
+              <input type="text" id="u-password" required minlength="6">
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn btn-ghost btn-sm" id="cancel-user-form">Cancelar</button>
+            <button type="submit" class="btn btn-outline-accent btn-sm">Salvar usuário</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="table-wrap">
+        <table id="users-table">
+          <thead>
+            <tr><th>E-mail</th><th>Criado em</th><th></th></tr>
+          </thead>
+          <tbody id="users-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ---- Edit password modal ---- -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal">
+    <h3>Alterar senhas</h3>
+    <p class="sub" id="edit-modal-sub">Somente os campos de senha podem ser alterados.</p>
+    <div class="field">
+      <label>Senha iCloud</label>
+      <input type="text" id="edit-password-input">
+    </div>
+    <div class="field">
+      <label>Senha (tempo de uso)</label>
+      <input type="text" id="edit-usage-password-input">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost btn-sm" id="edit-modal-cancel">Cancelar</button>
+      <button class="btn btn-outline-accent btn-sm" id="edit-modal-save">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- Configure suas chaves do Supabase em config.js -->
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
