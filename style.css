@@ -296,6 +296,19 @@ td.name{ font-weight:600; color: var(--text); }
 #toast.show{ opacity:1; transform: translateX(-50%) translateY(0); }
 #toast.error{ border-color: var(--danger-dim); color: var(--danger); }
 
+.due-bar-info{ display:flex; align-items:center; gap:24px; flex-wrap:wrap; }
+
+.field textarea{
+  width:100%; background: var(--bg-alt); border: 1px solid var(--border);
+  color: var(--text); padding: 11px 13px; border-radius: 8px; font-size: 14px;
+  outline: none; resize: vertical; font-family: inherit;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.field textarea:focus{
+  border-color: var(--accent-dim);
+  box-shadow: 0 0 0 3px rgba(46,230,196,0.12);
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 860px){
   header.topbar{ padding:14px 18px; }
