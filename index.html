@@ -53,6 +53,7 @@
   <main>
     <nav class="tabs">
       <button class="tab-btn active" data-tab="clients">Clientes</button>
+      <button class="tab-btn" data-tab="deleted">Excluídos</button>
       <button class="tab-btn" data-tab="users">Usuários</button>
     </nav>
 
@@ -97,6 +98,10 @@
               <label>Parcelas</label>
               <input type="number" id="c-installments" min="1" value="12" required>
             </div>
+            <div class="field" style="grid-column: 1 / -1;">
+              <label>Notas</label>
+              <textarea id="c-notes" rows="2" placeholder="Observações sobre este cliente (opcional)"></textarea>
+            </div>
           </div>
           <div class="form-actions">
             <button type="button" class="btn btn-ghost btn-sm" id="cancel-client-form">Cancelar</button>
@@ -129,11 +134,46 @@
       </div>
 
       <div class="due-bar">
-        <div>
-          <div class="label">Valor devido este mês</div>
-          <div class="value" id="due-value">R$ 0,00</div>
+        <div class="due-bar-info">
+          <div>
+            <div class="label">Valor devido este mês</div>
+            <div class="value" id="due-value">R$ 0,00</div>
+          </div>
+          <div class="meta" id="due-meta">0 clientes ativos × R$ 60,00</div>
         </div>
-        <div class="meta" id="due-meta">0 clientes ativos × R$ 60,00</div>
+        <button class="btn btn-ghost btn-sm" id="edit-fee-btn">✎ Ajustar mensalidade</button>
+      </div>
+    </section>
+
+    <!-- ---- DELETED PANEL ---- -->
+    <section class="panel" id="panel-deleted">
+      <div class="panel-head">
+        <div>
+          <h2>Clientes excluídos</h2>
+          <p>Dados preservados, fora do cálculo do valor devido.</p>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="deleted-table">
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>Conta iCloud</th>
+              <th>Senha iCloud</th>
+              <th>Senha (tempo de uso)</th>
+              <th>Telefone</th>
+              <th>Chave de acesso</th>
+              <th>Parcelas</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="deleted-tbody"></tbody>
+        </table>
+        <div class="empty-state" id="deleted-empty" style="display:none;">
+          <div class="glyph">🗑</div>
+          <h3>Nenhum cliente excluído</h3>
+          <p>Clientes removidos aparecem aqui, com todos os dados preservados.</p>
+        </div>
       </div>
     </section>
 
@@ -194,6 +234,38 @@
     <div class="modal-actions">
       <button class="btn btn-ghost btn-sm" id="edit-modal-cancel">Cancelar</button>
       <button class="btn btn-outline-accent btn-sm" id="edit-modal-save">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ---- Notes modal ---- -->
+<div class="modal-overlay" id="notes-modal">
+  <div class="modal">
+    <h3>Notas</h3>
+    <p class="sub" id="notes-modal-sub">Observações internas sobre este cliente.</p>
+    <div class="field">
+      <label>Notas</label>
+      <textarea id="notes-textarea" rows="5"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost btn-sm" id="notes-modal-cancel">Cancelar</button>
+      <button class="btn btn-outline-accent btn-sm" id="notes-modal-save">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ---- Fee modal ---- -->
+<div class="modal-overlay" id="fee-modal">
+  <div class="modal">
+    <h3>Ajustar mensalidade</h3>
+    <p class="sub">Novo valor cobrado por cliente ativo, por mês.</p>
+    <div class="field">
+      <label>Valor (R$)</label>
+      <input type="number" id="fee-input" min="0" step="0.01">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost btn-sm" id="fee-modal-cancel">Cancelar</button>
+      <button class="btn btn-outline-accent btn-sm" id="fee-modal-save">Salvar</button>
     </div>
   </div>
 </div>
