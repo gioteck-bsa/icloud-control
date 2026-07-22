@@ -11,6 +11,8 @@
   const FUNCTIONS_URL = SUPABASE_CONFIG.url.replace('.supabase.co', '.functions.supabase.co');
 
   let clients = [];
+  let deletedClients = [];
+  let monthlyFee = 60;
   let currentSession = null;
   let realtimeChannel = null;
 
@@ -75,6 +77,7 @@
     setSyncStatus('🟢 Conectado ao Supabase', 'linked');
 
     await sb.rpc('process_monthly_billing');
+    await loadBillingMeta();
     await loadClients();
     await loadUsers();
     subscribeRealtime();
@@ -86,6 +89,9 @@
       .channel('clients-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'clients' }, () => {
         loadClients();
+        if(document.getElementById('panel-deleted').classList.contains('active')){
+          loadDeletedClients();
+        }
       })
       .subscribe();
   }
@@ -98,7 +104,32 @@
       btn.classList.add('active');
       document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
       if(btn.dataset.tab === 'users') loadUsers();
+      if(btn.dataset.tab === 'deleted') loadDeletedClients();
     });
+  });
+
+  // ---------------- Billing / mensalidade ----------------
+  async function loadBillingMeta(){
+    const { data, error } = await sb.from('billing_meta').select('monthly_fee').eq('id', true).single();
+    if(!error && data){ monthlyFee = Number(data.monthly_fee); }
+  }
+
+  document.getElementById('edit-fee-btn').addEventListener('click', () => {
+    document.getElementById('fee-input').value = monthlyFee;
+    document.getElementById('fee-modal').classList.add('open');
+  });
+  document.getElementById('fee-modal-cancel').addEventListener('click', () => {
+    document.getElementById('fee-modal').classList.remove('open');
+  });
+  document.getElementById('fee-modal-save').addEventListener('click', async () => {
+    const newFee = parseFloat(document.getElementById('fee-input').value);
+    if(isNaN(newFee) || newFee < 0){ toast('Informe um valor válido.', true); return; }
+    const { error } = await sb.from('billing_meta').update({ monthly_fee: newFee }).eq('id', true);
+    if(error){ toast('Erro ao atualizar mensalidade: ' + error.message, true); return; }
+    monthlyFee = newFee;
+    document.getElementById('fee-modal').classList.remove('open');
+    toast('Valor da mensalidade atualizado.');
+    renderClients();
   });
 
   // ---------------- Client form ----------------
@@ -123,6 +154,7 @@
       access_key: document.getElementById('c-key').value.trim(),
       installments_total: installments,
       installments_left: installments,
+      notes: document.getElementById('c-notes').value.trim(),
       created_by: currentSession.user.id
     };
     const { error } = await sb.from('clients').insert(payload);
@@ -134,16 +166,48 @@
     await loadClients();
   });
 
-  // ---------------- Load & render clients ----------------
+  // ---------------- Load & render clients (ativos) ----------------
   async function loadClients(){
-    const { data, error } = await sb.from('clients').select('*').order('created_at', { ascending: false });
+    const { data, error } = await sb.from('clients')
+      .select('*')
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false });
     if(error){ toast('Erro ao carregar clientes: ' + error.message, true); return; }
     clients = data || [];
     renderClients();
   }
 
+  async function loadDeletedClients(){
+    const { data, error } = await sb.from('clients')
+      .select('*')
+      .not('deleted_at', 'is', null)
+      .order('deleted_at', { ascending: false });
+    if(error){ toast('Erro ao carregar excluídos: ' + error.message, true); return; }
+    deletedClients = data || [];
+    renderDeletedClients();
+  }
+
   function ringStyle(pctLeft){
     return 'background: conic-gradient(var(--accent) ' + (pctLeft*3.6) + 'deg, var(--border) ' + (pctLeft*3.6) + 'deg 360deg);';
+  }
+
+  function installmentsCellHtml(c){
+    const pctLeft = c.installments_total > 0 ? Math.round((c.installments_left / c.installments_total) * 100) : 0;
+    const done = c.installments_left <= 0;
+    return done ?
+      '<span class="badge-done">Quitado</span>' :
+      '<div class="installments"><div class="ring" style="' + ringStyle(pctLeft) + '"><div class="ring-inner"></div></div>' +
+      '<div class="count"><b>' + c.installments_left + '</b> <small>/ ' + c.installments_total + '</small></div></div>';
+  }
+
+  function baseRowCellsHtml(c){
+    return '<td class="name" data-label="Nome">' + escapeHtml(c.name) + '</td>' +
+      '<td class="mono" data-label="Conta iCloud">' + escapeHtml(c.account) + '</td>' +
+      '<td data-label="Senha iCloud">' + secretCellHtml(c.password) + '</td>' +
+      '<td data-label="Senha (tempo de uso)">' + secretCellHtml(c.usage_password) + '</td>' +
+      '<td class="mono" data-label="Telefone">' + escapeHtml(c.phone) + '</td>' +
+      '<td data-label="Chave de acesso">' + secretCellHtml(c.access_key) + '</td>' +
+      '<td data-label="Parcelas">' + installmentsCellHtml(c) + '</td>';
   }
 
   function renderClients(){
@@ -154,43 +218,59 @@
 
     clients.forEach(c => {
       const tr = document.createElement('tr');
-      const pctLeft = c.installments_total > 0 ? Math.round((c.installments_left / c.installments_total) * 100) : 0;
-      const done = c.installments_left <= 0;
-
-      tr.innerHTML =
-        '<td class="name" data-label="Nome">' + escapeHtml(c.name) + '</td>' +
-        '<td class="mono" data-label="Conta iCloud">' + escapeHtml(c.account) + '</td>' +
-        '<td data-label="Senha iCloud">' + secretCellHtml(c.password) + '</td>' +
-        '<td data-label="Senha (tempo de uso)">' + secretCellHtml(c.usage_password) + '</td>' +
-        '<td class="mono" data-label="Telefone">' + escapeHtml(c.phone) + '</td>' +
-        '<td data-label="Chave de acesso">' + secretCellHtml(c.access_key) + '</td>' +
-        '<td data-label="Parcelas">' + (done ?
-            '<span class="badge-done">Quitado</span>' :
-            '<div class="installments"><div class="ring" style="' + ringStyle(pctLeft) + '"><div class="ring-inner"></div></div>' +
-            '<div class="count"><b>' + c.installments_left + '</b> <small>/ ' + c.installments_total + '</small></div></div>'
-          ) + '</td>' +
+      tr.innerHTML = baseRowCellsHtml(c) +
         '<td data-label="Ações"><div class="row-actions">' +
             '<button class="icon-btn" data-action="edit" title="Editar senhas">' + editIcon() + '</button>' +
+            '<button class="icon-btn" data-action="notes" title="Notas">' + notesIcon() + '</button>' +
             '<button class="icon-btn danger" data-action="delete" title="Excluir">' + trashIcon() + '</button>' +
           '</div></td>';
 
-      tr.querySelectorAll('[data-action="toggle-secret"]').forEach(btn => {
-        btn.addEventListener('click', function(){
-          const span = this.previousElementSibling;
-          const isHidden = span.textContent === '••••••••';
-          span.textContent = isHidden ? span.dataset.secret : '••••••••';
-        });
-      });
+      bindSecretToggles(tr);
       tr.querySelector('[data-action="edit"]').addEventListener('click', () => openEditModal(c.id));
+      tr.querySelector('[data-action="notes"]').addEventListener('click', () => openNotesModal(c.id, false));
       tr.querySelector('[data-action="delete"]').addEventListener('click', () => deleteClient(c.id, c.name));
 
       tbody.appendChild(tr);
     });
 
     const activeClients = clients.filter(c => c.installments_left > 0);
-    const total = activeClients.length * 60;
+    const total = activeClients.length * monthlyFee;
     document.getElementById('due-value').textContent = formatBRL(total);
-    document.getElementById('due-meta').textContent = activeClients.length + ' cliente' + (activeClients.length===1?'':'s') + ' ativo' + (activeClients.length===1?'':'s') + ' × R$ 60,00';
+    document.getElementById('due-meta').textContent = activeClients.length + ' cliente' + (activeClients.length===1?'':'s') + ' ativo' + (activeClients.length===1?'':'s') + ' × ' + formatBRL(monthlyFee);
+  }
+
+  function renderDeletedClients(){
+    const tbody = document.getElementById('deleted-tbody');
+    const emptyEl = document.getElementById('deleted-empty');
+    tbody.innerHTML = '';
+    emptyEl.style.display = deletedClients.length === 0 ? 'block' : 'none';
+
+    deletedClients.forEach(c => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = baseRowCellsHtml(c) +
+        '<td data-label="Ações"><div class="row-actions">' +
+            '<button class="icon-btn" data-action="notes" title="Notas">' + notesIcon() + '</button>' +
+            '<button class="icon-btn" data-action="restore" title="Restaurar">' + restoreIcon() + '</button>' +
+            '<button class="icon-btn danger" data-action="wipe" title="Excluir definitivamente">' + trashIcon() + '</button>' +
+          '</div></td>';
+
+      bindSecretToggles(tr);
+      tr.querySelector('[data-action="notes"]').addEventListener('click', () => openNotesModal(c.id, true));
+      tr.querySelector('[data-action="restore"]').addEventListener('click', () => restoreClient(c.id, c.name));
+      tr.querySelector('[data-action="wipe"]').addEventListener('click', () => permanentlyDeleteClient(c.id, c.name));
+
+      tbody.appendChild(tr);
+    });
+  }
+
+  function bindSecretToggles(tr){
+    tr.querySelectorAll('[data-action="toggle-secret"]').forEach(btn => {
+      btn.addEventListener('click', function(){
+        const span = this.previousElementSibling;
+        const isHidden = span.textContent === '••••••••';
+        span.textContent = isHidden ? span.dataset.secret : '••••••••';
+      });
+    });
   }
 
   function secretCellHtml(value){
@@ -206,6 +286,12 @@
   }
   function trashIcon(){
     return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>';
+  }
+  function notesIcon(){
+    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><line x1="10" y1="9" x2="8" y2="9"></line></svg>';
+  }
+  function restoreIcon(){
+    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>';
   }
 
   function escapeHtml(str){
@@ -241,12 +327,61 @@
     editingClientId = null;
   });
 
+  // ---------------- Notes modal ----------------
+  let notesClientId = null;
+  let notesIsDeletedList = false;
+  const notesModal = document.getElementById('notes-modal');
+
+  function openNotesModal(clientId, isDeletedList){
+    const source = isDeletedList ? deletedClients : clients;
+    const c = source.find(x => x.id === clientId);
+    if(!c) return;
+    notesClientId = clientId;
+    notesIsDeletedList = isDeletedList;
+    document.getElementById('notes-modal-sub').textContent = 'Cliente: ' + c.name;
+    document.getElementById('notes-textarea').value = c.notes || '';
+    notesModal.classList.add('open');
+  }
+  document.getElementById('notes-modal-cancel').addEventListener('click', () => {
+    notesModal.classList.remove('open');
+    notesClientId = null;
+  });
+  document.getElementById('notes-modal-save').addEventListener('click', async () => {
+    const value = document.getElementById('notes-textarea').value;
+    const { error } = await sb.from('clients').update({ notes: value }).eq('id', notesClientId);
+    if(error){ toast('Erro ao salvar notas: ' + error.message, true); }
+    else{
+      toast('Notas atualizadas.');
+      if(notesIsDeletedList) await loadDeletedClients(); else await loadClients();
+    }
+    notesModal.classList.remove('open');
+    notesClientId = null;
+  });
+
+  // ---------------- Delete / restore / wipe ----------------
   async function deleteClient(id, name){
-    if(!confirm('Excluir o cliente "' + name + '"? Esta ação não pode ser desfeita.')) return;
-    const { error } = await sb.from('clients').delete().eq('id', id);
+    if(!confirm('Mover "' + name + '" para Excluídos? Os dados ficam preservados e ele sai do valor devido.')) return;
+    const { error } = await sb.from('clients').update({ deleted_at: new Date().toISOString() }).eq('id', id);
     if(error){ toast('Erro ao excluir: ' + error.message, true); return; }
-    toast('Cliente removido.');
+    toast('Cliente movido para Excluídos.');
     await loadClients();
+  }
+
+  async function restoreClient(id, name){
+    if(!confirm('Restaurar "' + name + '" para a lista de clientes ativos?')) return;
+    const { error } = await sb.from('clients').update({ deleted_at: null }).eq('id', id);
+    if(error){ toast('Erro ao restaurar: ' + error.message, true); return; }
+    toast('Cliente restaurado.');
+    await loadDeletedClients();
+    await loadClients();
+  }
+
+  async function permanentlyDeleteClient(id, name){
+    if(!confirm('Excluir "' + name + '" definitivamente? Essa ação NÃO pode ser desfeita e apaga todos os dados dele.')) return;
+    const { error } = await sb.from('clients').delete().eq('id', id);
+    if(error){ toast('Erro ao excluir definitivamente: ' + error.message, true); return; }
+    toast('Cliente excluído definitivamente.');
+    await loadDeletedClients();
   }
 
   // ---------------- Users (via Edge Function) ----------------
