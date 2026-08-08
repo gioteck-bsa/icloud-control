@@ -94,10 +94,6 @@
               <label>Chave de acesso</label>
               <input type="text" id="c-key" required>
             </div>
-            <div class="field">
-              <label>Parcelas</label>
-              <input type="number" id="c-installments" min="1" value="12" required>
-            </div>
             <div class="field" style="grid-column: 1 / -1;">
               <label>Notas</label>
               <textarea id="c-notes" rows="2" placeholder="Observações sobre este cliente (opcional)"></textarea>
@@ -120,7 +116,7 @@
               <th>Senha (tempo de uso)</th>
               <th>Telefone</th>
               <th>Chave de acesso</th>
-              <th>Parcelas</th>
+              <th>Pago</th>
               <th></th>
             </tr>
           </thead>
@@ -136,12 +132,12 @@
       <div class="due-bar">
         <div class="due-bar-info">
           <div>
-            <div class="label">Valor devido este mês</div>
+            <div class="label">Valor devido</div>
             <div class="value" id="due-value">R$ 0,00</div>
           </div>
-          <div class="meta" id="due-meta">0 clientes ativos × R$ 60,00</div>
+          <div class="meta" id="due-meta">0 contas não pagas × R$ 60,00</div>
         </div>
-        <button class="btn btn-ghost btn-sm" id="edit-fee-btn">✎ Ajustar mensalidade</button>
+        <button class="btn btn-ghost btn-sm" id="edit-fee-btn">✎ Ajustar valor</button>
       </div>
     </section>
 
@@ -163,7 +159,7 @@
               <th>Senha (tempo de uso)</th>
               <th>Telefone</th>
               <th>Chave de acesso</th>
-              <th>Parcelas</th>
+              <th>Pago</th>
               <th></th>
             </tr>
           </thead>
@@ -257,8 +253,8 @@
 <!-- ---- Fee modal ---- -->
 <div class="modal-overlay" id="fee-modal">
   <div class="modal">
-    <h3>Ajustar mensalidade</h3>
-    <p class="sub">Novo valor cobrado por cliente ativo, por mês.</p>
+    <h3>Ajustar valor</h3>
+    <p class="sub">Novo valor cobrado por cada conta não paga.</p>
     <div class="field">
       <label>Valor (R$)</label>
       <input type="number" id="fee-input" min="0" step="0.01">
