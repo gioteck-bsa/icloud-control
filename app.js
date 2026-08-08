@@ -76,7 +76,6 @@
     document.getElementById('current-user-label').textContent = session.user.email;
     setSyncStatus('🟢 Conectado ao Supabase', 'linked');
 
-    await sb.rpc('process_monthly_billing');
     await loadBillingMeta();
     await loadClients();
     await loadUsers();
@@ -144,7 +143,6 @@
 
   document.getElementById('client-form').addEventListener('submit', async function(e){
     e.preventDefault();
-    const installments = parseInt(document.getElementById('c-installments').value, 10) || 0;
     const payload = {
       name: document.getElementById('c-name').value.trim(),
       account: document.getElementById('c-account').value.trim(),
@@ -152,15 +150,13 @@
       usage_password: document.getElementById('c-usage-password').value,
       phone: document.getElementById('c-phone').value.trim(),
       access_key: document.getElementById('c-key').value.trim(),
-      installments_total: installments,
-      installments_left: installments,
       notes: document.getElementById('c-notes').value.trim(),
+      paid: false,
       created_by: currentSession.user.id
     };
     const { error } = await sb.from('clients').insert(payload);
     if(error){ toast('Erro ao salvar cliente: ' + error.message, true); return; }
     this.reset();
-    document.getElementById('c-installments').value = 12;
     clientFormCard.classList.remove('open');
     toast('Cliente cadastrado com sucesso.');
     await loadClients();
@@ -187,27 +183,29 @@
     renderDeletedClients();
   }
 
-  function ringStyle(pctLeft){
-    return 'background: conic-gradient(var(--accent) ' + (pctLeft*3.6) + 'deg, var(--border) ' + (pctLeft*3.6) + 'deg 360deg);';
+  function paidToggleHtml(c, interactive){
+    const cls = 'toggle-paid' + (c.paid ? ' is-paid' : '');
+    const label = c.paid ? '✓ Pago' : 'Não pago';
+    if(interactive){
+      return '<button class="' + cls + '" data-action="toggle-paid">' + label + '</button>';
+    }
+    return '<button class="' + cls + '" disabled>' + label + '</button>';
   }
 
-  function installmentsCellHtml(c){
-    const pctLeft = c.installments_total > 0 ? Math.round((c.installments_left / c.installments_total) * 100) : 0;
-    const done = c.installments_left <= 0;
-    return done ?
-      '<span class="badge-done">Quitado</span>' :
-      '<div class="installments"><div class="ring" style="' + ringStyle(pctLeft) + '"><div class="ring-inner"></div></div>' +
-      '<div class="count"><b>' + c.installments_left + '</b> <small>/ ' + c.installments_total + '</small></div></div>';
-  }
-
-  function baseRowCellsHtml(c){
+  function baseRowCellsHtml(c, interactivePaid){
     return '<td class="name" data-label="Nome">' + escapeHtml(c.name) + '</td>' +
       '<td class="mono" data-label="Conta iCloud">' + escapeHtml(c.account) + '</td>' +
       '<td data-label="Senha iCloud">' + secretCellHtml(c.password) + '</td>' +
       '<td data-label="Senha (tempo de uso)">' + secretCellHtml(c.usage_password) + '</td>' +
       '<td class="mono" data-label="Telefone">' + escapeHtml(c.phone) + '</td>' +
       '<td data-label="Chave de acesso">' + secretCellHtml(c.access_key) + '</td>' +
-      '<td data-label="Parcelas">' + installmentsCellHtml(c) + '</td>';
+      '<td data-label="Pago">' + paidToggleHtml(c, interactivePaid) + '</td>';
+  }
+
+  async function togglePaid(id, newValue){
+    const { error } = await sb.from('clients').update({ paid: newValue }).eq('id', id);
+    if(error){ toast('Erro ao atualizar status de pagamento: ' + error.message, true); return; }
+    await loadClients();
   }
 
   function renderClients(){
@@ -218,7 +216,7 @@
 
     clients.forEach(c => {
       const tr = document.createElement('tr');
-      tr.innerHTML = baseRowCellsHtml(c) +
+      tr.innerHTML = baseRowCellsHtml(c, true) +
         '<td data-label="Ações"><div class="row-actions">' +
             '<button class="icon-btn" data-action="edit" title="Editar senhas">' + editIcon() + '</button>' +
             '<button class="icon-btn" data-action="notes" title="Notas">' + notesIcon() + '</button>' +
@@ -226,6 +224,7 @@
           '</div></td>';
 
       bindSecretToggles(tr);
+      tr.querySelector('[data-action="toggle-paid"]').addEventListener('click', () => togglePaid(c.id, !c.paid));
       tr.querySelector('[data-action="edit"]').addEventListener('click', () => openEditModal(c.id));
       tr.querySelector('[data-action="notes"]').addEventListener('click', () => openNotesModal(c.id, false));
       tr.querySelector('[data-action="delete"]').addEventListener('click', () => deleteClient(c.id, c.name));
@@ -233,10 +232,10 @@
       tbody.appendChild(tr);
     });
 
-    const activeClients = clients.filter(c => c.installments_left > 0);
-    const total = activeClients.length * monthlyFee;
+    const unpaidClients = clients.filter(c => !c.paid);
+    const total = unpaidClients.length * monthlyFee;
     document.getElementById('due-value').textContent = formatBRL(total);
-    document.getElementById('due-meta').textContent = activeClients.length + ' cliente' + (activeClients.length===1?'':'s') + ' ativo' + (activeClients.length===1?'':'s') + ' × ' + formatBRL(monthlyFee);
+    document.getElementById('due-meta').textContent = unpaidClients.length + ' conta' + (unpaidClients.length===1?'':'s') + ' não paga' + (unpaidClients.length===1?'':'s') + ' × ' + formatBRL(monthlyFee);
   }
 
   function renderDeletedClients(){
@@ -247,7 +246,7 @@
 
     deletedClients.forEach(c => {
       const tr = document.createElement('tr');
-      tr.innerHTML = baseRowCellsHtml(c) +
+      tr.innerHTML = baseRowCellsHtml(c, false) +
         '<td data-label="Ações"><div class="row-actions">' +
             '<button class="icon-btn" data-action="notes" title="Notas">' + notesIcon() + '</button>' +
             '<button class="icon-btn" data-action="restore" title="Restaurar">' + restoreIcon() + '</button>' +
