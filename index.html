@@ -135,7 +135,16 @@
             <div class="label">Valor devido</div>
             <div class="value" id="due-value">R$ 0,00</div>
           </div>
-          <div class="meta" id="due-meta">0 contas não pagas × R$ 60,00</div>
+          <div class="due-details">
+            <div class="meta" id="due-meta">0 contas não pagas × R$ 60,00</div>
+            <div class="other-services">
+              <label for="other-services-input">Outros Serviços</label>
+              <div class="other-services-input-wrap">
+                <span>R$</span>
+                <input type="number" id="other-services-input" min="0" step="0.01" placeholder="0,00">
+              </div>
+            </div>
+          </div>
         </div>
         <button class="btn btn-ghost btn-sm" id="edit-fee-btn">✎ Ajustar valor</button>
       </div>
