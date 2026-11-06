@@ -13,6 +13,7 @@
   let clients = [];
   let deletedClients = [];
   let monthlyFee = 60;
+  let otherServices = 0;
   let currentSession = null;
   let realtimeChannel = null;
 
@@ -109,9 +110,26 @@
 
   // ---------------- Billing / mensalidade ----------------
   async function loadBillingMeta(){
-    const { data, error } = await sb.from('billing_meta').select('monthly_fee').eq('id', true).single();
-    if(!error && data){ monthlyFee = Number(data.monthly_fee); }
+    const { data, error } = await sb.from('billing_meta').select('monthly_fee, other_services').eq('id', true).single();
+    if(!error && data){
+      monthlyFee = Number(data.monthly_fee);
+      otherServices = Number(data.other_services) || 0;
+      document.getElementById('other-services-input').value = otherServices > 0 ? otherServices : '';
+    }
   }
+
+  // Outros Serviços: valor extra somado ao Valor Devido (salvo no banco ao sair do campo / Enter)
+  document.getElementById('other-services-input').addEventListener('change', async function(){
+    const raw = this.value.trim();
+    const value = raw === '' ? 0 : parseFloat(raw);
+    if(isNaN(value) || value < 0){ toast('Informe um valor válido.', true); this.value = otherServices > 0 ? otherServices : ''; return; }
+    const { error } = await sb.from('billing_meta').update({ other_services: value }).eq('id', true);
+    if(error){ toast('Erro ao salvar Outros Serviços: ' + error.message, true); return; }
+    otherServices = value;
+    this.value = value > 0 ? value : '';
+    toast(value > 0 ? 'Outros Serviços atualizado.' : 'Outros Serviços removido.');
+    renderClients();
+  });
 
   document.getElementById('edit-fee-btn').addEventListener('click', () => {
     document.getElementById('fee-input').value = monthlyFee;
@@ -233,9 +251,10 @@
     });
 
     const unpaidClients = clients.filter(c => !c.paid);
-    const total = unpaidClients.length * monthlyFee;
+    const total = unpaidClients.length * monthlyFee + (otherServices > 0 ? otherServices : 0);
     document.getElementById('due-value').textContent = formatBRL(total);
-    document.getElementById('due-meta').textContent = unpaidClients.length + ' conta' + (unpaidClients.length===1?'':'s') + ' não paga' + (unpaidClients.length===1?'':'s') + ' × ' + formatBRL(monthlyFee);
+    document.getElementById('due-meta').textContent = unpaidClients.length + ' conta' + (unpaidClients.length===1?'':'s') + ' não paga' + (unpaidClients.length===1?'':'s') + ' × ' + formatBRL(monthlyFee) +
+      (otherServices > 0 ? ' + ' + formatBRL(otherServices) + ' outros serviços' : '');
   }
 
   function renderDeletedClients(){
