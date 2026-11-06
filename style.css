@@ -297,6 +297,25 @@ td.name{ font-weight:600; color: var(--text); }
 #toast.error{ border-color: var(--danger-dim); color: var(--danger); }
 
 .due-bar-info{ display:flex; align-items:center; gap:24px; flex-wrap:wrap; }
+.due-details{ display:flex; flex-direction:column; gap:10px; }
+
+.other-services{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.other-services label{
+  font-size:12px; color: var(--text-dim); text-transform:uppercase; letter-spacing:0.5px; font-weight:500;
+}
+.other-services-input-wrap{
+  display:flex; align-items:center; gap:6px; background: var(--bg-alt);
+  border:1px solid var(--border); border-radius:8px; padding: 0 10px;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.other-services-input-wrap:focus-within{
+  border-color: var(--accent-dim); box-shadow: 0 0 0 3px rgba(46,230,196,0.12);
+}
+.other-services-input-wrap span{ font-size:13px; color: var(--text-faint); }
+.other-services-input-wrap input{
+  width:110px; background:transparent; border:none; outline:none; color: var(--text);
+  padding: 8px 0; font-size:14px; font-family: var(--font-mono);
+}
 
 .toggle-paid{
   display:inline-flex; align-items:center; gap:6px; border:1px solid var(--border);
